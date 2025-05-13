@@ -23,7 +23,7 @@ Przegląd aktywności (udział w zawodach, połowy)
 Wyszukiwanie i filtrowanie po nazwisku, statusie członkostwa
 
 Widok:
-
+![alt text](image-1.png)
 
 # 2. Zawody Wędkarskie
 Funkcje:
@@ -31,6 +31,7 @@ Funkcje:
 Tworzenie wydarzeń (nazwa, data, typ łowiska)
 
 Widok:
+![alt text](image-2.png)
 
 # 3. Wyniki Zawodów Wędkarskich
 Funkcje:
@@ -38,6 +39,7 @@ Funkcje:
 Rejestrowanie wyników (wędkarz, ilość, gatunek, masa)
 
 Widok:
+![alt text](image-3.png)
 
 # 4. Rejestr Połowów
 Funkcje:
@@ -47,6 +49,7 @@ Dodawanie połowu
 Informacje o gatunku, lokalizacji, dacie
 
 Widok:
+![alt text](image-4.png)
 
 # 🗃️ Propozycja Bazy Danych (schemat)
 Poniżej prezentuję uproszczony schemat relacyjnej bazy danych:
