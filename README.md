@@ -1,4 +1,4 @@
-# PROJECT-PO2
+# PO2-PROJECT
 
 # 🎣 1. System Zarządzania Klubem Wędkarskim
 Aplikacja desktopowa lub webowa (np. ASP.NET) do kompleksowego zarządzania klubem wędkarskim. Umożliwia rejestrację członków, organizację zawodów oraz rejestr połowów
