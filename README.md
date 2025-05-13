@@ -47,38 +47,61 @@ Poniżej prezentuję uproszczony schemat relacyjnej bazy danych:
 Member
 
 ├── Id (PK)
+
 ├── FirstName
+
 ├── LastName
+
 ├── BirthDate
+
 ├── Phone
+
 ├── Email
+
 ├── JoinDate
+
 ├── IsActive
+
 ├── LicenseValidUntil
+
 └── MembershipFeePaid (bool)
 
 FishingCompetition
 
 ├── Id (PK)
+
 ├── Name
+
 ├── Date
+
 ├── Location
+
 └── CompetitionType (Open / Klubowe)
 
 CompetitionResult
 
 ├── Id (PK)
+
 ├── MemberId (FK)
+
 ├── CompetitionId (FK)
+
 ├── FishType
+
 ├──Weight
+
 └──Quantity
 
 FishingLog
 
 ├── Id (PK)
+
 ├── MemberId (FK)
+
 ├── Date
+
 ├── Location
+
 ├── FishType
+
 └── Weight
