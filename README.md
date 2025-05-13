@@ -88,7 +88,7 @@ CompetitionResult
 
 ├── FishType
 
-└──Weight
+└── Weight
 
 FishingLog
 
