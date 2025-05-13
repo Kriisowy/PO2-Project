@@ -11,7 +11,6 @@ Organizacja zawodów wędkarskich (zapisy, wyniki, klasyfikacje)
 
 Rejestr połowów (data, miejsce, gatunek, waga)
 
-# 🎣 System Zarządzania Jednostką OSP 
 # 1. Członkowie Klubu
 Funkcje:
 
