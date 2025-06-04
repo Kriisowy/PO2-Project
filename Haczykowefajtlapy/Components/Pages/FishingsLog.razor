@@ -1,0 +1,261 @@
+@page "/fishing-logs"
+@using Haczykowefajtlapy.Model
+@using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
+@inject Haczykowefajtlapy.Data.FishingClubContext DbContext
+@rendermode InteractiveServer
+
+<style>
+    .table-hover tbody tr:hover { background-color: #f5f5f5; }
+    .modal-backdrop-custom {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.5); z-index: 1040;
+    }
+</style>
+
+<h3 class="mb-4">Lista Połowów</h3>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-primary" @onclick="AddFishingLog">
+        <i class="bi bi-plus-circle"></i> Dodaj połów
+    </button>
+    <input class="form-control me-2" placeholder="Wyszukaj..." @bind="searchTerm" />
+</div>
+
+<table class="table table-striped table-hover">
+    <thead>
+    <tr>
+        <th class="sortable" @onclick="@(() => SortBy("member"))">Członek @(RenderSortEmoji("member"))</th>
+        <th class="sortable" @onclick="@(() => SortBy("date"))">Data @(RenderSortEmoji("date"))</th>
+        <th class="sortable" @onclick="@(() => SortBy("location"))">Lokalizacja @(RenderSortEmoji("location"))</th>
+        <th class="sortable" @onclick="@(() => SortBy("fishType"))">Gatunek ryby @(RenderSortEmoji("fishType"))</th>
+        <th class="sortable" @onclick="@(() => SortBy("weight"))">Waga (kg) @(RenderSortEmoji("weight"))</th>
+        <th class="text-center">Akcje</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var log in FilteredFishingLogs)
+    {
+        <tr>
+            <td>@log.Member.FirstName @log.Member.LastName</td>
+            <td>@log.Date.ToString("yyyy-MM-dd")</td>
+            <td>@log.Location</td>
+            <td>@log.FishType</td>
+            <td>@log.Weight.ToString("F2")</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-info me-1" @onclick="() => EditFishingLog(log)">✏️</button>
+                <button class="btn btn-sm btn-danger" @onclick="() => PromptDelete(log)">🗑️</button>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (isEditModalVisible)
+{
+    <div class="modal-backdrop-custom"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm Model="logToEdit" OnValidSubmit="ConfirmEdit">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(logToEdit.Id == 0 ? "Dodaj" : "Edytuj") połów</h5>
+                        <button type="button" class="btn-close" @onclick="CancelEdit"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary class="text-danger" />
+                        <div class="mb-3">
+                            <label class="form-label">Data połowu</label>
+                            <InputDate class="form-control" @bind-Value="logToEdit.Date" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Lokalizacja</label>
+                            <InputText class="form-control" @bind-Value="logToEdit.Location" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gatunek ryby</label>
+                            <InputText class="form-control" @bind-Value="logToEdit.FishType" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Waga (kg)</label>
+                            <InputNumber class="form-control" @bind-Value="logToEdit.Weight" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Członek</label>
+                            <InputSelect class="form-control" @bind-Value="logToEdit.MemberId">
+                                <option value="">-- wybierz członka --</option>
+                                @foreach (var member in members)
+                                {
+                                    <option value="@member.Id">@member.FirstName @member.LastName</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => logToEdit.MemberId)" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Anuluj</button>
+                        <button type="submit" class="btn btn-primary">Zapisz</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isDeleteModalVisible)
+{
+    <div class="modal-backdrop-custom"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Usuń połów</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Czy na pewno chcesz usunąć ten połów?</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDelete">Anuluj</button>
+                    <button class="btn btn-danger" @onclick="ConfirmDelete">Usuń</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<FishingLog> fishingLogs = new();
+    private string searchTerm = string.Empty;
+    private bool isDeleteModalVisible = false;
+    private bool isEditModalVisible = false;
+    private FishingLog? logToDelete;
+    private FishingLog logToEdit = new();
+    private List<Member> members = new();
+    private string currentSortColumn = "date";
+    private bool isSortAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        fishingLogs = await DbContext.FishingLogs.Include(f => f.Member).ToListAsync();
+        members = await DbContext.Members.ToListAsync();
+    }
+
+    private string RenderSortEmoji(string column)
+    {
+        if (currentSortColumn != column) return "";
+        return isSortAscending ? "🔼" : "🔽";
+    }
+    
+    private IEnumerable<FishingLog> FilteredFishingLogs
+    {
+        get
+        {
+            var filtered = fishingLogs.Where(log =>
+                string.IsNullOrEmpty(searchTerm)
+                || log.Member.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.Member.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                || log.FishType.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+            return currentSortColumn switch
+            {
+                "member" => isSortAscending ? filtered.OrderBy(log => log.Member.LastName) : filtered.OrderByDescending(log => log.Member.LastName),
+                "date" => isSortAscending ? filtered.OrderBy(log => log.Date) : filtered.OrderByDescending(log => log.Date),
+                "location" => isSortAscending ? filtered.OrderBy(log => log.Location) : filtered.OrderByDescending(log => log.Location),
+                "fishType" => isSortAscending ? filtered.OrderBy(log => log.FishType) : filtered.OrderByDescending(log => log.FishType),
+                "weight" => isSortAscending ? filtered.OrderBy(log => log.Weight) : filtered.OrderByDescending(log => log.Weight),
+                _ => filtered
+            };
+        }
+    }
+
+    private void SortBy(string column)
+    {
+        if (currentSortColumn == column)
+            isSortAscending = !isSortAscending;
+        else
+        {
+            currentSortColumn = column;
+            isSortAscending = true;
+        }
+    }
+
+    private void AddFishingLog()
+    {
+        logToEdit = new FishingLog { Date = DateTime.Today };
+        isEditModalVisible = true;
+    }
+
+    private void EditFishingLog(FishingLog log)
+    {
+        logToEdit = new FishingLog
+        {
+            Id = log.Id,
+            Date = DateTime.SpecifyKind(logToEdit.Date, DateTimeKind.Utc),
+            Location = log.Location,
+            FishType = log.FishType,
+            Weight = log.Weight,
+            MemberId = log.MemberId
+        };
+        isEditModalVisible = true;
+    }
+
+    private void CancelEdit() => isEditModalVisible = false;
+
+    private async Task ConfirmEdit()
+    {
+        logToEdit.Date = DateTime.SpecifyKind(logToEdit.Date, DateTimeKind.Utc);
+        if (logToEdit.Id == 0)
+        {
+            DbContext.FishingLogs.Add(logToEdit);
+            await DbContext.SaveChangesAsync();
+
+            var newLog = await DbContext.FishingLogs
+                .Include(f => f.Member)
+                .FirstOrDefaultAsync(f => f.Id == logToEdit.Id);
+
+            if (newLog != null)
+            {
+                fishingLogs.Add(newLog);
+            }
+        }
+        else
+        {
+            var existing = await DbContext.FishingLogs.FindAsync(logToEdit.Id);
+            if (existing != null)
+            {
+                existing.Date = DateTime.SpecifyKind(logToEdit.Date, DateTimeKind.Utc);
+                existing.Location = logToEdit.Location;
+                existing.FishType = logToEdit.FishType;
+                existing.Weight = logToEdit.Weight;
+                existing.MemberId = logToEdit.MemberId;
+
+                await DbContext.SaveChangesAsync();
+
+                fishingLogs = await DbContext.FishingLogs.Include(f => f.Member).ToListAsync();
+            }
+        }
+
+        isEditModalVisible = false;
+    }
+
+
+    private void PromptDelete(FishingLog log)
+    {
+        logToDelete = log;
+        isDeleteModalVisible = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (logToDelete != null)
+        {
+            DbContext.FishingLogs.Remove(logToDelete);
+            fishingLogs.Remove(logToDelete);
+            await DbContext.SaveChangesAsync();
+        }
+        isDeleteModalVisible = false;
+    }
+
+    private void CancelDelete() => isDeleteModalVisible = false;
+}

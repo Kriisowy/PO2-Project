@@ -1,0 +1,272 @@
+@page "/members"
+@using Haczykowefajtlapy.Model
+@using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
+@inject Haczykowefajtlapy.Data.FishingClubContext DbContext
+@rendermode InteractiveServer
+
+    <style>
+        .members-page .table-hover tbody tr:hover { background-color: #f5f5f5; }
+        .modal-backdrop-custom {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); z-index: 1040;
+        }
+    </style>
+
+
+<h3 class="mb-4">Lista Członków Klubu</h3>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-primary" @onclick="AddMember">
+        <i class="bi bi-plus-circle"></i> Dodaj członka
+    </button>
+    <div class="d-flex">
+        <input class="form-control me-2" placeholder="Wyszukaj..." @bind="searchTerm" />
+        <select class="form-select me-2" @bind="filterStatus">
+            <option value="">Wszyscy</option>
+            <option value="active">Aktywni</option>
+            <option value="inactive">Nieaktywni</option>
+        </select>
+    </div>
+</div>
+<table class="table table-striped table-hover members-page">
+    <thead>
+    
+        <tr>
+            <th class="sortable" @onclick="@(() => SortBy("firstName"))">Imię @RenderSortEmoji("firstName")</th>
+            <th class="sortable" @onclick="@(() => SortBy("lastName"))">Nazwisko @RenderSortEmoji("lastName")</th>
+            <th>Telefon</th>
+            <th>Email</th>
+            <th class="sortable" @onclick="@(() => SortBy("joinDate"))">Dołączenie @RenderSortEmoji("joinDate")</th>
+            <th class="sortable" @onclick="@(() => SortBy("status"))">Status @RenderSortEmoji("status")</th>
+            <th class="sortable" @onclick="@(() => SortBy("license"))">Licencja do @RenderSortEmoji("license")</th>
+            <th class="sortable" @onclick="@(() => SortBy("fee"))">Składka @RenderSortEmoji("fee")</th>
+            <th class="text-center">Akcje</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var m in FilteredMembers)
+        {
+            <tr>
+                <td>@m.FirstName</td><td>@m.LastName</td><td>@m.Phone</td><td>@m.Email</td>
+                <td>@m.JoinDate.ToString("yyyy-MM-dd")</td>
+                <td><span class="badge @(m.IsActive?"bg-success":"bg-secondary")">@(m.IsActive?"Tak":"Nie")</span></td>
+                <td>@(m.LicenseValidUntil?.ToString("yyyy-MM-dd") ?? "-")</td>
+                <td><span class="badge @(m.MembershipFeePaid?"bg-success":"bg-danger")">@(m.MembershipFeePaid?"Opłacona":"Nieopłacona")</span></td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-info me-1" @onclick="() => EditMember(m)">✏️</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => PromptDelete(m)">🗑️</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (isDeleteModalVisible)
+{
+    <div class="modal-backdrop-custom"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+      <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Usuń członka</h5>
+          <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+        </div>
+        <div class="modal-body">
+          <p>Czy usunąć <strong>@memberToDelete?.FirstName @memberToDelete?.LastName</strong>?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @onclick="CancelDelete">Anuluj</button>
+          <button class="btn btn-danger" @onclick="ConfirmDelete">Usuń</button>
+        </div>
+      </div></div>
+    </div>
+}
+
+@if (isEditModalVisible)
+{
+    <div class="modal-backdrop-custom"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="z-index:1050;">
+      <div class="modal-dialog"><div class="modal-content">
+        <EditForm Model="memberToEdit" OnValidSubmit="ConfirmEdit">
+          <DataAnnotationsValidator />
+          <div class="modal-header">
+            <h5 class="modal-title">@(memberToEdit.Id == 0 ? "Dodaj" : "Edytuj") członka</h5>
+            <button type="button" class="btn-close" @onclick="CancelEdit"></button>
+          </div>
+          <div class="modal-body">
+            <ValidationSummary class="text-danger" />
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Imię</label>
+                <InputText class="form-control" @bind-Value="memberToEdit.FirstName" />
+                <ValidationMessage For="() => memberToEdit.FirstName" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Nazwisko</label>
+                <InputText class="form-control" @bind-Value="memberToEdit.LastName" />
+                <ValidationMessage For="() => memberToEdit.LastName" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Telefon</label>
+                <InputText class="form-control" @bind-Value="memberToEdit.Phone" />
+                <ValidationMessage For="() => memberToEdit.Phone" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <InputText class="form-control" @bind-Value="memberToEdit.Email" />
+                <ValidationMessage For="() => memberToEdit.Email" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Dołączenie</label>
+                <InputDate class="form-control" @bind-Value="memberToEdit.JoinDate" />
+                <ValidationMessage For="() => memberToEdit.JoinDate" />
+              </div>
+              <div class="col-md-6 form-check">
+                <InputCheckbox class="form-check-input" @bind-Value="memberToEdit.IsActive" />
+                <label class="form-check-label">Aktywny</label>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Licencja ważna do</label>
+                <InputDate class="form-control" @bind-Value="memberToEdit.LicenseValidUntil" />
+              </div>
+              <div class="col-md-6 form-check">
+                <InputCheckbox class="form-check-input" @bind-Value="memberToEdit.MembershipFeePaid" />
+                <label class="form-check-label">Składka opłacona</label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Anuluj</button>
+            <button type="submit" class="btn btn-primary">Zapisz</button>
+          </div>
+        </EditForm>
+      </div></div>
+    </div>
+}
+
+@code {
+    private List<Member> members = new();
+    private string searchTerm = string.Empty;
+    private string filterStatus = string.Empty;
+    private bool isDeleteModalVisible;
+    private Member? memberToDelete;
+    private bool isEditModalVisible;
+    private Member memberToEdit = new Member();
+    private string currentSortColumn = "lastName";
+    private bool isSortAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        members = await DbContext.Members.ToListAsync();
+    }
+    
+    private void SortBy(string column)
+    {
+        if (currentSortColumn == column)
+            isSortAscending = !isSortAscending;
+        else
+        {
+            currentSortColumn = column;
+            isSortAscending = true;
+        }
+    }
+
+    private string RenderSortEmoji(string column)
+    {
+        if (currentSortColumn != column) return "";
+        return isSortAscending ? "🔼" : "🔽";
+    }
+
+
+    private IEnumerable<Member> FilteredMembers => ApplySorting(
+        members
+            .Where(m => string.IsNullOrEmpty(searchTerm) || m.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || m.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Where(m => filterStatus switch { "active" => m.IsActive, "inactive" => !m.IsActive, _ => true })
+    );
+
+    private IEnumerable<Member> ApplySorting(IEnumerable<Member> list)
+    {
+        return currentSortColumn switch
+        {
+            "firstName" => isSortAscending ? list.OrderBy(m => m.FirstName) : list.OrderByDescending(m => m.FirstName),
+            "lastName" => isSortAscending ? list.OrderBy(m => m.LastName) : list.OrderByDescending(m => m.LastName),
+            "joinDate" => isSortAscending ? list.OrderBy(m => m.JoinDate) : list.OrderByDescending(m => m.JoinDate),
+            "status" => isSortAscending ? list.OrderBy(m => m.IsActive) : list.OrderByDescending(m => m.IsActive),
+            "license" => isSortAscending ? list.OrderBy(m => m.LicenseValidUntil) : list.OrderByDescending(m => m.LicenseValidUntil),
+            "fee" => isSortAscending ? list.OrderBy(m => m.MembershipFeePaid) : list.OrderByDescending(m => m.MembershipFeePaid),
+            _ => list
+        };
+    }
+    private void AddMember()
+    {
+        memberToEdit = new Member { BirthDate = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc), JoinDate = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc) };
+        isEditModalVisible = true;
+    }
+
+    private void EditMember(Member m)
+    {
+        memberToEdit = new Member
+        {
+            Id = m.Id,
+            FirstName = m.FirstName,
+            LastName = m.LastName,
+            BirthDate = DateTime.SpecifyKind(m.BirthDate, DateTimeKind.Utc),
+            Phone = m.Phone,
+            Email = m.Email,
+            JoinDate = DateTime.SpecifyKind(m.JoinDate, DateTimeKind.Utc),
+            IsActive = m.IsActive,
+            LicenseValidUntil = m.LicenseValidUntil.HasValue ? DateTime.SpecifyKind(m.LicenseValidUntil.Value, DateTimeKind.Utc) : null,
+            MembershipFeePaid = m.MembershipFeePaid
+        };
+        isEditModalVisible = true;
+    }
+
+    private async Task ConfirmEdit()
+    {
+        memberToEdit.BirthDate = DateTime.SpecifyKind(memberToEdit.BirthDate, DateTimeKind.Utc);
+        memberToEdit.JoinDate = DateTime.SpecifyKind(memberToEdit.JoinDate, DateTimeKind.Utc);
+        if (memberToEdit.LicenseValidUntil.HasValue)
+            memberToEdit.LicenseValidUntil = DateTime.SpecifyKind(memberToEdit.LicenseValidUntil.Value, DateTimeKind.Utc);
+
+        if (memberToEdit.Id == 0)
+        {
+            DbContext.Members.Add(memberToEdit);
+            members.Add(memberToEdit);
+        }
+        else
+        {
+            var existing = await DbContext.Members.FindAsync(memberToEdit.Id);
+            if (existing != null)
+            {
+                existing.FirstName = memberToEdit.FirstName;
+                existing.LastName = memberToEdit.LastName;
+                existing.BirthDate = memberToEdit.BirthDate;
+                existing.Phone = memberToEdit.Phone;
+                existing.Email = memberToEdit.Email;
+                existing.JoinDate = memberToEdit.JoinDate;
+                existing.IsActive = memberToEdit.IsActive;
+                existing.LicenseValidUntil = memberToEdit.LicenseValidUntil;
+                existing.MembershipFeePaid = memberToEdit.MembershipFeePaid;
+                var idx = members.FindIndex(x => x.Id == existing.Id);
+                if (idx >= 0) members[idx] = existing;
+            }
+        }
+        await DbContext.SaveChangesAsync();
+        isEditModalVisible = false;
+        StateHasChanged();
+    }
+
+    private void CancelEdit() => isEditModalVisible = false;
+
+    private void PromptDelete(Member m) { memberToDelete = m; isDeleteModalVisible = true; }
+    private async Task ConfirmDelete()
+    {
+        if (memberToDelete != null) {
+            DbContext.Members.Remove(memberToDelete);
+            members.Remove(memberToDelete);
+            await DbContext.SaveChangesAsync();
+        }
+        isDeleteModalVisible = false;
+    }
+
+    private void CancelDelete() => isDeleteModalVisible = false;
+}

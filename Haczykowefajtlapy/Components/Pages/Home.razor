@@ -1,0 +1,116 @@
+﻿@page "/"
+@using Haczykowefajtlapy.Model
+@using Microsoft.EntityFrameworkCore
+@inject Haczykowefajtlapy.Data.FishingClubContext DbContext
+@rendermode InteractiveServer
+
+<style>
+    .nav-tabs .nav-link { cursor: pointer; }
+    .card .display-4 { font-size: 2.5rem; }
+</style>
+
+<h1 class="mt-4">Haczykowe Fajtłapy</h1>
+<div class="text-center">
+    <h2>Witaj w aplikacji!</h2>
+    <p class="lead">Monitoruj zawody wędkarskie, wyniki i połowy.</p>
+</div>
+
+<h2>Dashboard</h2>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Członkowie</h5>
+                <p class="card-text display-4">@TotalMembers</p>
+                <small>@ActiveMembers aktywnych</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Zawody</h5>
+                <p class="card-text display-4">@CompetitionsCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Logi połowów</h5>
+                <p class="card-text display-4">@LogsCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <h5>Najnowsze zawody</h5>
+        <ul class="list-group">
+            @foreach (var comp in LatestCompetitions)
+            {
+                <li class="list-group-item">
+                    <strong>@comp.Name</strong> — @comp.Date.ToString("yyyy-MM-dd") w @comp.Location
+                </li>
+            }
+        </ul>
+    </div>
+    <div class="col-md-6">
+        <h5>Top 5 wyników</h5>
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Miejsce</th>
+                    <th>Członek</th>
+                    <th>Zawody</th>
+                    <th>Waga (kg)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in TopResults)
+                {
+                    <tr>
+                        <td>@r.Place</td>
+                        <td>@r.Member.FirstName @r.Member.LastName</td>
+                        <td>@r.Competition.Name</td>
+                        <td>@r.Weight Kg</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+@code {
+    private bool showDashboard = false;
+
+    private int TotalMembers;
+    private int ActiveMembers;
+    private int CompetitionsCount;
+    private int LogsCount;
+    private List<FishingCompetition> LatestCompetitions = new();
+    private List<CompetitionResult> TopResults = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        TotalMembers      = await DbContext.Members.CountAsync();
+        ActiveMembers     = await DbContext.Members.CountAsync(m => m.IsActive);
+        CompetitionsCount = await DbContext.FishingCompetitions.CountAsync();
+        LogsCount         = await DbContext.FishingLogs.CountAsync();
+
+        LatestCompetitions = await DbContext.FishingCompetitions
+            .OrderByDescending(c => c.Date)
+            .Take(5)
+            .ToListAsync();
+
+        TopResults = await DbContext.CompetitionResults
+            .Include(r => r.Member)
+            .Include(r => r.Competition)
+            .OrderBy(r => r.Place)
+            .Take(5)
+            .ToListAsync();
+    }
+}
